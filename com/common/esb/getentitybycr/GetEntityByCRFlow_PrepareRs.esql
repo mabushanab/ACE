@@ -1,0 +1,122 @@
+BROKER SCHEMA com.common.esb.getentitybycr
+PATH Qiwa.Framework.Lib;
+
+CREATE COMPUTE MODULE GetEntityByCRFlow_PrepareRs
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		
+		-- CALL CopyMessageHeaders();
+		-- CALL CopyEntireMessage();
+		DECLARE propertiesRef REFERENCE TO Environment.Properties.GetEntityByCR.GetEntityByCRFlow;
+				
+		SET OutputRoot.Properties = Environment.Variables.GetEntityByCR.Properties;
+		SET OutputRoot.MQMD = Environment.Variables.GetEntityByCR.MQMD;
+		SET OutputRoot.MQRFH2 = Environment.Variables.GetEntityByCR.MQRFH2;
+			
+		CREATE LASTCHILD OF OutputRoot DOMAIN 'XMLNSC';
+        CREATE FIRSTCHILD OF OutputRoot.XMLNSC.GetEntityByCRRs NAME 'Header'; 
+        DECLARE outHeadRef REFERENCE TO OutputRoot.XMLNSC.GetEntityByCRRs.Header;  
+        DECLARE InHeader REFERENCE TO Environment.Variables.GetEntityByCR.Header ;
+        CREATE LASTCHILD OF OutputRoot.XMLNSC.GetEntityByCRRs NAME 'Body'; 
+		DECLARE outBodyRef REFERENCE TO OutputRoot.XMLNSC.GetEntityByCRRs.Body;
+		
+		-- save MQMD required info in env
+		DECLARE serviceResponseMsg REFERENCE TO InputRoot.JSON.Data;
+		SET OutputRoot.XMLNSC.GetEntityByCRRs.Header = Environment.Variables.GetEntityByCR.Header;
+
+		DECLARE serviceResult REFERENCE TO serviceResponseMsg; 
+		
+		IF(serviceResult.ErrorCode IS NOT NULL) THEN
+		CALL getBackendEsb_MapErrorCode('MCIRS',serviceResult.ErrorCode,
+       	    OutputRoot.XMLNSC.GetEntityByCRRs.Header.ChannelId,Environment.Variables.Error.EnglishDescription,Environment.Variables.Error.ArabicDescription,
+       	    Environment.Variables.Error.STATUS,Environment.Variables.Error.ERR_CODE);
+	    	
+	    	CALL Create_esbXML_Response_Header(Environment.Variables.Error.ERR_CODE,InHeader,outHeadRef);    
+			RETURN TRUE;
+		END IF;
+			
+			
+		
+		SET outBodyRef.CRNumber = FIELDVALUE(serviceResult.CRNumber);  
+		SET outBodyRef.CRName = FIELDVALUE(serviceResult.CRName); 
+		SET outBodyRef.IsMain = FIELDVALUE(serviceResult.IsMain);
+		SET outBodyRef.MainCR = FIELDVALUE(serviceResult.MainCR);
+		SET outBodyRef.CRBusiness.Code = FIELDVALUE(serviceResult.CRBusinessType.BusinessTypeCode);
+		SET outBodyRef.CRBusiness.TypeEn = FIELDVALUE(serviceResult.CRBusinessType.BusinessTypeEN); 
+		SET outBodyRef.CRBusiness.TypeAr = FIELDVALUE(serviceResult.CRBusinessType.BusinessTypeAR);
+		SET outBodyRef.Activities = FIELDVALUE(serviceResult.Activities); 
+		SET outBodyRef.NationalNo = FIELDVALUE(serviceResult.NationalNo);
+		SET outBodyRef.IssueDate = FIELDVALUE(serviceResult.IssueDate);
+		SET outBodyRef.ExpiryDate  = FIELDVALUE(serviceResult.ExpiryDate);
+		SET outBodyRef.CRLocation.Code = FIELDVALUE(serviceResult.CRLocation.LocationCode);
+		SET outBodyRef.CRLocation.TypeAr = FIELDVALUE(serviceResult.CRLocation.LocationNameAR);
+		SET outBodyRef.CRLocation.TypeEn = FIELDVALUE(serviceResult.CRLocation.LocationNameEN);
+		SET outBodyRef.CRStatus  = FIELDVALUE(serviceResult.CRStatus);
+		SET outBodyRef.Capital  =CAST (serviceResult.Capital As Decimal);
+		SET outBodyRef.CompanyPaidCapital  = CAST (serviceResult.Company_PaidCapital As Decimal);
+		SET outBodyRef.CompanyShareCount  = CAST (serviceResult.Company_ShareCount As Decimal);
+		SET outBodyRef.FiscalDate.Id  = FIELDVALUE(serviceResult.FiscalDateType.FiscalDateTypeID);
+		SET outBodyRef.FiscalDate.Name  = FIELDVALUE(serviceResult.FiscalDateType.FiscalDateTypeName);
+		SET outBodyRef.FiscalDate.EndDay  = FIELDVALUE(serviceResult.FiscalDateType.FiscalEndDay);
+		SET outBodyRef.FiscalDate.EndMonth  = FIELDVALUE(serviceResult.FiscalDateType.FiscalEndMonth);
+		
+		DECLARE counter1 INTEGER 1;
+		DECLARE iSICsLength Integer CARDINALITY(serviceResult.iSICs.Item[]) ;
+		WHILE counter1 <= iSICsLength DO			
+			 SET outBodyRef.ISICs[counter1].Level3_Id=FIELDVALUE(serviceResult.iSICs.Item[counter1].level3_ID);
+			 SET outBodyRef.ISICs[counter1].Level3=FIELDVALUE(serviceResult.iSICs.Item[counter1].level3);
+			 
+			SET counter1 = counter1 + 1 ;
+			
+		END WHILE;
+		
+		DECLARE i INTEGER 1;
+		DECLARE PartiesLength INTEGER CARDINALITY(serviceResult.Parties.Item[]);
+		
+		WHILE i <= PartiesLength DO
+		-- WHILE FALSE DO
+			SET outBodyRef.Parties[i].PartyName = FIELDVALUE(serviceResult.Parties.Item[i].PartyName);			
+			
+			-- CREATE LASTCHILD OF outBodyRef.Parties[i]  NAME 'PartyRelation');
+			SET outBodyRef.Parties[i].PartyRelation.TypeAr = FIELDVALUE(serviceResult.Parties.Item[i].PartyRelation.RelationTypeAR);
+			SET outBodyRef.Parties[i].PartyRelation.TypeEn = FIELDVALUE(serviceResult.Parties.Item[i].PartyRelation.RelationTypeEN);
+			SET outBodyRef.Parties[i].PartyRelation.Code = FIELDVALUE(serviceResult.Parties.Item[i].PartyRelation.RelationTypeCode);
+			
+			
+			-- CREATE LASTCHILD OF outBodyRef.Parties[i].PartyRelation  NAME 'PartyNationality');			
+			SET outBodyRef.Parties[i].PartyNationality.TypeAr = FIELDVALUE(serviceResult.Parties.Item[i].PartyNationality.NationalityAR);
+			SET outBodyRef.Parties[i].PartyNationality.TypeEN = FIELDVALUE(serviceResult.Parties.Item[i].PartyNationality.NationalityEN);
+			SET outBodyRef.Parties[i].PartyNationality.Code = FIELDVALUE(serviceResult.Parties.Item[i].PartyNationality.NationalityCode);
+
+			SET outBodyRef.Parties[i].PartyID = FIELDVALUE(serviceResult.Parties.Item[i].PartyID);
+		    SET outBodyRef.Parties[i].PartyIDType = FIELDVALUE(serviceResult.Parties.Item[i].PartyIDType);
+			
+			SET outBodyRef.Parties[i].BirthDateG = FIELDVALUE(serviceResult.Parties.Item[i].BirthDateGregorian);
+			SET outBodyRef.Parties[i].PartyPercint = FIELDVALUE(serviceResult.Parties.Item[i].PartyPercint);
+			SET outBodyRef.Parties[i].PartyGross = CAST (serviceResult.Parties.Item[i].PartyGross As Decimal);
+			SET outBodyRef.Parties[i].PartyShareCount =  CAST (serviceResult.Parties.Item[i].PartyShareCount As Decimal);
+			SET outBodyRef.Parties[i].PartyEmail = FIELDVALUE(serviceResult.Parties.Item[i].PartyEmail);
+			SET outBodyRef.Parties[i].PartyMobile =FIELDVALUE(serviceResult.Parties.Item[i].PartyMobile);
+		    SET i = i + 1;
+		    
+		END WHILE;
+				
+			CALL Create_esbXML_Response_Header(GetESBSuccessCode(),InHeader,outHeadRef);    
+				
+		RETURN TRUE;
+	END;
+
+	CREATE PROCEDURE CopyMessageHeaders() BEGIN
+		DECLARE I INTEGER 1;
+		DECLARE J INTEGER;
+		SET J = CARDINALITY(InputRoot.*[]);
+		WHILE I < J DO
+			SET OutputRoot.*[I] = InputRoot.*[I];
+			SET I = I + 1;
+		END WHILE;
+	END;
+
+	CREATE PROCEDURE CopyEntireMessage() BEGIN
+		SET OutputRoot = InputRoot;
+	END;
+END MODULE;

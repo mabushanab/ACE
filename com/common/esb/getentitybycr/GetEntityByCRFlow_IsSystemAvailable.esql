@@ -1,0 +1,14 @@
+BROKER SCHEMA com.common.esb.getentitybycr
+
+
+
+CREATE FILTER MODULE  GetEntityByCRFlow_IsSystemAvailable
+	CREATE FUNCTION Main() RETURNS BOOLEAN
+	BEGIN
+		IF CAST(Environment.Properties.GetEntityByCR.GetEntityByCRFlow.Variables.IsSystemAvailable AS BOOLEAN) THEN
+			RETURN TRUE;
+		END IF;
+		RETURN FALSE;
+	END;
+
+END MODULE;
