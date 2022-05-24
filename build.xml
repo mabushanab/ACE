@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<project name="Hello World Project" default="info">
+   <target name="info">
+      
+      <property name="gitLink" value="https://github.com/mabushanab"/>
+      <property name="WrkDir" value="\Users\PC\Downloads\Mosab\ACE"/>
+
+      <exec executable="mqsicreatebar">
+         <arg value="-data" />
+         <arg value="${WrkDir}" />
+         <arg value="-b" />
+         <arg value="..\BARfiles\IBMConsole22.bar" />
+         <arg value="-a" />
+         <arg value="ACE" />
+         <arg value="-deployAsSource" />
+         <arg value="-skipWSErrorCheck" />
+         <arg value="-trace" />
+         <arg value="-l" />
+         <arg value="AceFramework" />
+         <arg value="AceTaheelLib" />
+      </exec>
+
+
+   </target>
+</project>
